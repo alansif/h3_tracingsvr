@@ -86,6 +86,25 @@ app.get('/api/v1/endoscopes', function(req, res) {
     f();
 });
 
+const tianzhu = require('./tianzhu');
+
+app.get('/api/v1/tianzhu', function(req, res) {
+	let edsn = req.query['edsn'];
+	if (!edsn) {
+		res.status(400).end();
+		return;
+	}
+    let f = async() => {
+        try{
+            let result = await tianzhu.getall(edsn);
+            res.status(200).json(result.recordset);
+        } catch(err) {
+            res.status(500).json(err);
+        }
+    };
+    f();
+});
+
 app.listen(port, () => {
     console.log("Server is running on port " + port + "...");
 });
