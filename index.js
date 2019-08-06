@@ -31,28 +31,37 @@ const conn = mysql.createPool({
 
 const query = util.promisify(conn.query).bind(conn);
 
-app.get('/api/v1/query', function(req, res) {
-    let fromdate = req.query['fromdate'] || '';
-    let todate = req.query['todate'] || '';
+async function query_mdvt(qu) {
+    let fromdate = qu['fromdate'] || '';
+    let todate = qu['todate'] || '';
     if (fromdate.length === 0) fromdate = '2000-01-01';
     fromdate += ' 00:00:00';
     if (todate.length === 0) todate = '2039-12-31';
     todate += ' 23:59:59';
-    let CYCLE = req.query['CYCLE'] || '';
-	let machine = (req.query['machine'] || []).map(v=>`'${v}'`).join();
-	let endoscope = req.query['endoscope'] || '';
+    let CYCLE = qu['CYCLE'] || '';
+	let machine = (qu['machine'] || []).map(v=>`'${v}'`).join();
+	let endoscope = qu['endoscope'] || '';
     let s1 = `select * from mdvt where CycleCompletionDate between '${fromdate}' and '${todate}'`;
     let s2 = CYCLE.length === 0 ? '' : ` and CYCLE='${CYCLE}'`;
     let s3 = endoscope.length === 0 ? '' : ` and SerialNumber='${endoscope}'`;
     let s4 = machine.length === 0 ? '' : ` and MachineSerialNumber in (${machine})`;
     let s5 = ' order by CycleCompletionDate';
+    try{
+        const rows = await query(s1+s2+s3+s4+s5);
+        return rows;
+    } catch(err) {
+        console.error(err);
+        throw err;
+    }
+}
+
+app.get('/api/v1/query', function(req, res) {
     let f = async function() {
         try{
-            const rows = await query(s1+s2+s3+s4+s5);
+            const rows = await query_mdvt(req.query);
             res.status(200).json(rows);
         } catch(err) {
             res.status(500).end();
-            console.error(err);
         }
     };
     f();
@@ -89,21 +98,28 @@ app.get('/api/v1/endoscopes', function(req, res) {
 const tianzhu = require('./tianzhu');
 
 app.get('/api/v1/tianzhu', function(req, res) {
-	let edsn = req.query['edsn'];
+	let edsn = req.query['endoscope'];
 	if (!edsn) {
 		res.status(400).end();
 		return;
 	}
     let f = async() => {
         try{
-            let result = await tianzhu.getall(edsn);
+            let mreq = {endoscope:edsn,fromdate:'2019-08-01',todate:'2019-08-01'};
+            let mres = await query_mdvt(mreq);
+            console.log(mres);
+            let result = await tianzhu.getall(mreq);
+            console.log(result.recordset);
             res.status(200).json(result.recordset);
         } catch(err) {
+            console.error(err);
             res.status(500).json(err);
         }
     };
     f();
 });
+
+
 
 app.listen(port, () => {
     console.log("Server is running on port " + port + "...");
