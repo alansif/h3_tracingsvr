@@ -119,6 +119,58 @@ app.get('/api/v1/tianzhu', function(req, res) {
     f();
 });
 
+app.get('/api/v1/timeline', function(req, res) {
+	let edsn = req.query['endoscope'];
+	let fromdate = req.query['fromdate'] || '';
+	let todate = req.query['todate'] || '';
+	if (!edsn) {
+		res.status(400).end();
+		return;
+	}
+	let mreq = {endoscope:edsn,fromdate:'2019-08-01',todate:'2019-08-01'};
+    let f = async() => {
+        try{
+			let mdr = await query_mdvt(mreq);
+			let ml = mdr.map(x => ({
+				title: '机洗', datetime: new Date(x.CycleCompletionDate + 'T' + x.TimeBegin + 'Z'), contents:[
+					'机洗结束: ' + x.TimeEnd,
+					'设备ID:　' + x.MachineSerialNumber
+				],
+				data: x
+			}));
+			let tzr = await tianzhu.getall(mreq);
+			let tl = tzr.flatMap(x => 
+				x.MarrorStatus === true ?
+				[
+					{title:'测漏初洗', datetime:new Date(x.CleanStart - 1000 * 60), contents:[
+						'操作人: ' + x.CardName
+					]},
+					{title:'诊疗使用', datetime:x.UseTime, contents:[
+						'医生: ' + x.ExamDoctor + '　　　' + '诊疗室: ' + x.ExamRoom,
+						'患者: ' + x.PatientID + '　' + x.PatientName + '　' + x.Sex + '　' + x.Age + '岁'
+					]},
+					{title:'预处理', datetime:x.MarrorCleanTime, contents:[
+						'操作人: ' + x.MarrorCleanPerson,
+						'结束时间: ' + x.MarrorCleanStopTime.toISOString().substring(11, 19)
+					]}
+				] :
+				[
+					{title:'测漏初洗', datetime:new Date(x.CleanStart - 1000 * 60), contents:[
+						'操作人: ' + x.CardName
+					]}
+				]
+			);
+			let rl = ml.concat(tl);
+			rl.sort((a, b) => a.datetime - b.datetime);
+			console.log(rl);
+            res.status(200).json(rl);
+        } catch(err) {
+            console.error(err);
+            res.status(500).json(err);
+        }
+    };
+    f();
+});
 
 
 app.listen(port, () => {

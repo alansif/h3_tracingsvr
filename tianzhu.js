@@ -17,8 +17,9 @@ pool1.on('error', err => {
 });
 
 async function getall({endoscope, fromdate, todate}) {
-    console.log(endoscope, fromdate, todate);
+    if (fromdate.length === 0) fromdate = '2000-01-01';
     fromdate += ' 00:00:00';
+    if (todate.length === 0) todate = '2039-12-31';
     todate += ' 23:59:59';
     const ss =
         "select CleanStart,CleanStop,CleanTime,CardName,UseTime,ExamDoctor,ExamRoom,PatientID,PatientName,Sex,Age," +
@@ -28,7 +29,7 @@ async function getall({endoscope, fromdate, todate}) {
     try {
     	const request = new sql.Request(pool1)
         const result = await request.input("edsn", endoscope).input("fromdate", fromdate).input("todate", todate).query(ss);
-    	return result;
+    	return result.recordset;
     } catch (err) {
         console.error('SQL error', err);
         throw err;
