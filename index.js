@@ -111,30 +111,31 @@ app.get('/api/v1/timeline', function(req, res) {
 			let mdr = await query_mdvt(mreq);
 			let ml = mdr.map(x => ({
 				stage:2, title: '机洗', datetime: new Date(x.CycleCompletionDate + 'T' + x.TimeBegin + 'Z'), contents:[
-					'机洗结束: ' + x.TimeEnd,
+					'机洗结束:　' + x.TimeEnd + (x.CYCLE === 'FAIL' ? '　(异常结束)' : ''),
 					'设备ID:　' + x.MachineSerialNumber
 				],
-				data: x
+				data: x,
+				warning: x.CYCLE === 'FAIL'
 			}));
 			let tzr = await tianzhu.getall(mreq);
 			let tl = tzr.flatMap(x => 
 				x.MarrorStatus === true ?
 				[
 					{stage:1, title:'手洗', datetime:new Date(x.CleanStart - 1000 * 60), contents:[
-						'操作人: ' + x.CardName
+						'操作人:　' + x.CardName
 					]},
 					{stage:3, title:'诊疗使用', datetime:x.UseTime, contents:[
-						'医生: ' + x.ExamDoctor + '　　　' + '诊疗室: ' + x.ExamRoom,
+						'医生: ' + x.ExamDoctor + '　　　　' + '诊疗室: ' + x.ExamRoom,
 						'患者: ' + x.PatientID + '　' + x.PatientName + '　' + x.Sex + '　' + x.Age + '岁'
 					]},
 					{stage:4, title:'预处理', datetime:x.MarrorCleanTime, contents:[
-						'操作人: ' + x.MarrorCleanPerson,
-						'结束时间: ' + x.MarrorCleanStopTime.toISOString().substring(11, 19)
+						'操作人:　' + x.MarrorCleanPerson,
+						'结束时间:　' + x.MarrorCleanStopTime.toISOString().substring(11, 19)
 					]}
 				] :
 				[
 					{stage:1, title:'手洗', datetime:new Date(x.CleanStart - 1000 * 60), contents:[
-						'操作人: ' + x.CardName
+						'操作人:　' + x.CardName
 					]}
 				]
 			);
