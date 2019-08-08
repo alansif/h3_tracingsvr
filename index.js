@@ -1,3 +1,4 @@
+const moment = require("moment");
 const path = require("path");
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -97,6 +98,10 @@ app.get('/api/v1/endoscopes', function(req, res) {
 
 const tianzhu = require('./tianzhu');
 
+function shiftTime(t) {
+    return moment(t, "HH:mm:ss").subtract(60, 'seconds').format("HH:mm:ss");
+}
+
 app.get('/api/v1/timeline', function(req, res) {
 	let edsn = req.query['endoscope'];
 	let fromdate = req.query['fromdate'] || '';
@@ -117,12 +122,21 @@ app.get('/api/v1/timeline', function(req, res) {
 				data: x,
 				warning: x.CYCLE === 'FAIL'
 			}));
-			let tzr = await tianzhu.getall(mreq);
+            let tzr = await tianzhu.getall(mreq);
+            tzr.forEach(x => {
+                let r1 = x.CleanDetail.split("|");
+                x.CleanDetail = {};
+                r1.forEach(y => {
+                    let r2 = y.split("-");
+                    x.CleanDetail[r2[0]] = shiftTime(r2[1]);
+                });
+            });
 			let tl = tzr.flatMap(x => 
 				x.MarrorStatus === true ?
 				[
 					{stage:1, title:'手洗', datetime:new Date(x.CleanStart - 1000 * 60), contents:[
-						'操作人:　' + x.CardName
+                        '测漏:　' + x.CleanDetail['测漏'] + '　　　初洗:　' + x.CleanDetail['初洗开始'],
+                        '操作人:　' + x.CardName
 					]},
 					{stage:3, title:'诊疗使用', datetime:x.UseTime, contents:[
 						'医生: ' + x.ExamDoctor + '　　　　' + '诊疗室: ' + x.ExamRoom,
@@ -135,6 +149,7 @@ app.get('/api/v1/timeline', function(req, res) {
 				] :
 				[
 					{stage:1, title:'手洗', datetime:new Date(x.CleanStart - 1000 * 60), contents:[
+                        '测漏:　' + x.CleanDetail['测漏'] + '　　　初洗:　' + x.CleanDetail['初洗开始'],
 						'操作人:　' + x.CardName
 					]}
 				]
