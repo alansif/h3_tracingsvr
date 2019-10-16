@@ -36,4 +36,21 @@ async function getall({endoscope, fromdate, todate}) {
     }	
 }
 
+async function getclosest(endoscope, reftime) {
+    const ss =
+        "select top 1 ABS(DATEDIFF(second, CleanStart, @reftime)) as dt, CleanStart,CardName,PatientID,PatientName,CleanDetail," +
+        "convert(varchar(8),MarrorCleanTime,108) as MarrorCleanTime,convert(varchar(8),MarrorCleanStopTime,108) as MarrorCleanStopTime," +
+		"MarrorCleanPerson,MarrorStatus from Clean_Record where MarrorID=@edsn order by dt";
+	await pool1Connect;
+    try {
+    	const request = new sql.Request(pool1)
+        const result = await request.input("edsn", endoscope).input("reftime", reftime).query(ss);
+    	return result.recordset;
+    } catch (err) {
+        console.error('SQL error', err);
+        throw err;
+    }	
+}
+
 exports.getall = getall;
+exports.getclosest = getclosest;
