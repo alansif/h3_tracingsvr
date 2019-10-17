@@ -189,6 +189,36 @@ app.get('/api/v1/report', function(req, res) {
     f();
 });
 
+const pdfgen = require('./pdfgen');
+
+app.post('/api/v1/report/download', function(req, res) {
+	let fromdate = req.body['fromdate'] || '';
+	let todate = req.body['todate'] || '';
+	let mreq = {fromdate:fromdate,todate:todate};
+    let f = async() => {
+        try{
+            let mdr = await query_mdvt(mreq);
+            let r = [];
+            for(let x of mdr) {
+                const reftime = x.CycleCompletionDate + ' ' + x.TimeBegin;
+                const tzr = await tianzhu.getclosest(x.SerialNumber, reftime);
+                let tz = tzr[0] || {};
+                tz.mdvt = x;
+                r.push(tz);
+            }
+            res.writeHead(200, {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': 'attachment; filename=report.pdf'
+            });
+            pdfgen.genpdf(res, r);
+        } catch(err) {
+            console.error(err);
+            res.status(500).json(err);
+        }
+    };
+    f();
+});
+
 app.listen(port, () => {
     console.log("Server is running on port " + port + "...");
 });
