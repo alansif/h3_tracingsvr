@@ -56,6 +56,17 @@ async function query_mdvt(qu) {
     }
 }
 
+async function query_mdvt_next(id, sn) {
+    let s1 = `select * from mdvt where id > ${id} and SerialNumber=${sn} and CYCLE='PASS'`;    
+    try{
+        const rows = await query(s1);
+        return rows;
+    } catch(err) {
+        console.error(err);
+        throw err;
+    }
+}
+
 app.get('/api/v1/query', function(req, res) {
     let f = async function() {
         try{
@@ -165,21 +176,40 @@ app.get('/api/v1/timeline', function(req, res) {
     f();
 });
 
+async function buildData(mreq) {
+    let mdr = (await query_mdvt(mreq)).filter(x => x.CYCLE !== 'FAIL');
+    let r = [];
+    for(let x of mdr) {
+        if (!!x.SerialNumber) {
+            const reftime = x.CycleCompletionDate + ' ' + x.TimeBegin;
+            const tzr = await tianzhu.getclosest(x.SerialNumber, reftime);
+            let tz = tzr[0] || {};
+            if (tz.MarrorStatus) {
+                let mdr1 = await query_mdvt_next(x.id, x.SerialNumber);
+                let y = mdr1[0];
+                const reftime1 = y.CycleCompletionDate + ' ' + y.TimeBegin;
+                const tzr1 = await tianzhu.getclosest(x.SerialNumber, reftime1);
+                let tz1 =  tzr1[0] || {};
+                tz.CleanDetail1 = tz1.CleanDetail;
+                tz.CardName1 = tz1.CardName;
+                tz.mdvt = x;
+                tz.mdvt1 = y;
+                r.push(tz);
+            }
+        } else {
+            r.push({mdvt:x,mdvt1:{}});   //没有SerialNumber就是自洗消
+        }
+    }
+    return r;
+}
+
 app.get('/api/v1/report', function(req, res) {
 	let fromdate = req.query['fromdate'] || '';
 	let todate = req.query['todate'] || '';
 	let mreq = {fromdate:fromdate,todate:todate};
     let f = async() => {
         try{
-            let mdr = await query_mdvt(mreq);
-            let r = [];
-            for(let x of mdr) {
-                const reftime = x.CycleCompletionDate + ' ' + x.TimeBegin;
-                const tzr = await tianzhu.getclosest(x.SerialNumber, reftime);
-                let tz = tzr[0] || {};
-                tz.mdvt = x;
-                r.push(tz);
-            }
+            let r = await buildData(mreq);
             res.status(200).json(r);
         } catch(err) {
             console.error(err);
@@ -197,15 +227,7 @@ app.post('/api/v1/report/download', function(req, res) {
 	let mreq = {fromdate:fromdate,todate:todate};
     let f = async() => {
         try{
-            let mdr = await query_mdvt(mreq);
-            let r = [];
-            for(let x of mdr) {
-                const reftime = x.CycleCompletionDate + ' ' + x.TimeBegin;
-                const tzr = await tianzhu.getclosest(x.SerialNumber, reftime);
-                let tz = tzr[0] || {};
-                tz.mdvt = x;
-                r.push(tz);
-            }
+            let r = await buildData(mreq);
             res.writeHead(200, {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': 'attachment; filename=report.pdf'

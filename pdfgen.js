@@ -43,7 +43,7 @@ function getDocDef(tablebody, details) {
         ],
         defaultStyle: {
             // alignment: 'justify'
-            fontSize: 8
+            fontSize: 5.4
         },
         styles: {
             detail: {
@@ -57,53 +57,44 @@ function getDocDef(tablebody, details) {
 var options = {
 	// ...
 }
-  
+
+function getDetail(mdvt) {
+        let r = Object.assign({}, mdvt);
+        delete r.fileId;
+        delete r.Steps;
+        const s = Object.entries(r).map(c => [fieldNames[c[0]]||c[0], c[1]]);
+        let steps = JSON.parse(mdvt.Steps).map(q => [q.time, q.step, getTrans(q.info)]);
+        return [s, steps];
+}
+
 function genpdf(res, data) {
     let tablebody = [
-        ['id','日期','类别','客户姓名','客户ID','内镜型号','内镜ID','预处理开始','预处理结束','预处理员','洗消步骤','洗消员']
+        ['日期','类别','内镜型号','内镜ID','前洗消步骤','洗消员','id1','客户姓名','客户ID','预处理始','预处理终','预处理员','后洗消步骤','洗消员','id2']
     ];
     for(let x of data) {
         let d = [
-            x.mdvt.id,
             x.mdvt.CycleCompletionDate,
             x.mdvt.Category,
-            x.PatientName,
-            x.PatientID,
             x.mdvt.EndoscopeType,
             x.mdvt.SerialNumber,
+            x.CleanDetail,
+            x.CardName,
+            x.mdvt.id,
+            x.PatientName,
+            x.PatientID,
             x.MarrorCleanTime,
             x.MarrorCleanStopTime,
             x.MarrorCleanPerson,
-            x.CleanDetail,
-            x.CardName
+            x.CleanDetail1,
+            x.CardName1,
+            x.mdvt1.id,
         ];
         tablebody.push(d.map(v => v || ''));
     }
     let details = [];
     for(let x of data) {
-        let r = Object.assign({}, x.mdvt);
-        delete r.fileId;
-        delete r.Steps;
-        const s = Object.entries(r).map(c => [fieldNames[c[0]]||c[0], c[1]]);
-        let v = {
-            layout: 'noBorders',
-            style: 'detail',
-            table: {
-                headerRows: 0,
-                body: s
-            }
-        }
-        details.push(v);
-        let steps = JSON.parse(x.mdvt.Steps).map(q => [q.time, q.step, getTrans(q.info)]);
-        const z = {
-            layout: 'noBorders',
-            style: 'detail',
-            table: {
-                headerRows: 0,
-                body: steps
-            }
-        }
-        details.push(z);
+        details.push(...getDetail(x.mdvt));
+        if (!!x.mdvt1.id) details.push(...getDetail(x.mdvt1));
     }
     let detailpages = [];
     const pagesize = 6;
@@ -119,7 +110,7 @@ function genpdf(res, data) {
                         style: 'detail',
                         table: {
                             headerRows: 0,
-                            body: details[dtlidx].table.body
+                            body: details[dtlidx]
                         }
                     },
                     {
@@ -127,7 +118,7 @@ function genpdf(res, data) {
                         style: 'detail',
                         table: {
                             headerRows: 0,
-                            body: details[dtlidx + 1].table.body
+                            body: details[dtlidx + 1]
                         }
                     }
                 ];
