@@ -186,15 +186,17 @@ async function buildData(mreq) {
             let tz = tzr[0] || {};
             if (tz.MarrorStatus) {
                 let mdr1 = await query_mdvt_next(x.id, x.SerialNumber);
-                let y = mdr1[0];
-                const reftime1 = y.CycleCompletionDate + ' ' + y.TimeBegin;
-                const tzr1 = await tianzhu.getclosest(x.SerialNumber, reftime1);
-                let tz1 =  tzr1[0] || {};
-                tz.CleanDetail1 = tz1.CleanDetail;
-                tz.CardName1 = tz1.CardName;
-                tz.mdvt = x;
-                tz.mdvt1 = y;
-                r.push(tz);
+                if (mdr1.length > 0) {
+                    let y = mdr1[0];
+                    const reftime1 = y.CycleCompletionDate + ' ' + y.TimeBegin;
+                    const tzr1 = await tianzhu.getclosest(x.SerialNumber, reftime1);
+                    let tz1 =  tzr1[0] || {};
+                    tz.CleanDetail1 = tz1.CleanDetail;
+                    tz.CardName1 = tz1.CardName;
+                    tz.mdvt = x;
+                    tz.mdvt1 = y;
+                    r.push(tz);
+                }
             }
         } else {
             r.push({mdvt:x,mdvt1:{}});   //没有SerialNumber就是自洗消
