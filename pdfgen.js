@@ -69,12 +69,13 @@ function getDetail(mdvt) {
 
 function genpdf(res, data) {
     let tablebody = [
-        ['日期','类别','内镜型号','内镜ID','前洗消步骤','洗消员','id1','客户姓名','客户ID','预处理始','预处理终','预处理员','后洗消步骤','洗消员','id2']
+        ['日期','类别','设备ID','内镜型号','内镜ID','前洗消步骤','洗消员','id1','客户姓名','客户ID','预处理始','预处理终','预处理员','后洗消步骤','洗消员','id2']
     ];
     for(let x of data) {
         let d = [
             x.mdvt.CycleCompletionDate,
             x.mdvt.Category,
+            x.mdvt.MachineSerialNumber,
             x.mdvt.EndoscopeType,
             x.mdvt.SerialNumber,
             x.CleanDetail,

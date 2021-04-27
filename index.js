@@ -107,6 +107,23 @@ app.get('/api/v1/endoscopes', function(req, res) {
     f();
 });
 
+const soluscope = require('./soluscope');
+
+app.get('/api/v1/soluscope/query', function(req, res) {
+    const fromdate = req.query['fromdate'] || '';
+    const todate = req.query['todate'] || '';
+	const f = async () => {
+		try {
+			const r = await soluscope.query('', fromdate, todate);
+            res.status(200).json(r);
+		} catch(err) {
+            res.status(500).end();
+            console.error(err);
+		}
+	};
+	f();
+});
+
 const tianzhu = require('./tianzhu');
 
 function shiftTime(t) {
