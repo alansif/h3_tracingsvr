@@ -114,7 +114,7 @@ app.get('/api/v1/soluscope/query', function(req, res) {
     const todate = req.query['todate'] || '';
 	const f = async () => {
 		try {
-			const r = await soluscope.query('', fromdate, todate);
+			const r = await soluscope.query({endoscope:'', fromdate, todate});
             res.status(200).json(r);
 		} catch(err) {
             res.status(500).end();
@@ -145,11 +145,22 @@ app.get('/api/v1/timeline', function(req, res) {
 			let ml = mdr.map(x => ({
 				stage:2, title: '机洗', datetime: new Date(x.CycleCompletionDate + 'T' + x.TimeBegin + 'Z'), contents:[
 					'机洗结束:　' + x.TimeEnd + (x.CYCLE === 'FAIL' ? '　(异常结束)' : ''),
-					'设备ID:　' + x.MachineSerialNumber
+					'设备ID（楷腾）:　' + x.MachineSerialNumber
 				],
 				data: x,
 				warning: x.CYCLE === 'FAIL'
 			}));
+            let slpr = await soluscope.query(mreq);
+            let slpl = slpr.map(x => ({
+				stage:2, title: '机洗', datetime: new Date(x.StartDate.getTime()+8*3600*1000), contents:[
+					'机洗结束:　' + new Date(x.EndDate.getTime()+8*3600*1000).toISOString().substring(0,19).replace('T', ' ') + (x.ErrorCode ? '　(异常结束)' : ''),
+                    '循环时长:　' + x.Cycletime,
+                    '循环类型:　' + x.CycleName,
+					'设备ID（索洛普）:　' + x.MachineSerialNumber
+				],
+				data: x,
+				warning: !!x.ErrorCode
+            }));
             let tzr = await tianzhu.getall(mreq);
             tzr.forEach(x => {
                 let r1 = x.CleanDetail.split("|");
@@ -182,7 +193,7 @@ app.get('/api/v1/timeline', function(req, res) {
 					]}
 				]
 			);
-			let rl = ml.concat(tl);
+			let rl = ml.concat(tl).concat(slpl);
 			rl.sort((a, b) => a.datetime - b.datetime);
             res.status(200).json(rl);
         } catch(err) {
