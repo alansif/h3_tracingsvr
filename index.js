@@ -56,8 +56,10 @@ async function query_mdvt(qu) {
     }
 }
 
-async function query_mdvt_next(id, sn) {
-    let s1 = `select * from mdvt where id > ${id} and SerialNumber=${sn} and CYCLE='PASS'`;    
+//async function query_mdvt_next(id, sn) {
+//    let s1 = `select * from mdvt where id > ${id} and SerialNumber=${sn} and CYCLE='PASS'`;    
+async function query_mdvt_next(reftime, sn) {
+    let s1 = `select * from mdvt where UNIX_TIMESTAMP(concat(CycleCompletionDate,' ',TimeBegin)) > UNIX_TIMESTAMP('${reftime}') and SerialNumber=${sn} and CYCLE='PASS'`;
     try{
         const rows = await query(s1);
         return rows;
@@ -204,8 +206,39 @@ app.get('/api/v1/timeline', function(req, res) {
     f();
 });
 
-async function buildData(mreq) {
+function slp2mdvt(x) {
+    x.Category = x.CycleName == 1 ? '内镜洗消' : '自洗消';
+    x.EndoscopeType = '';
+    x.SerialNumber = x.EndoSN;
+    const dstr = new Date(x.StartDate.getTime()+8*3600*1000).toISOString();
+    x.CycleCompletionDate = dstr.substring(0, 10);
+    x.TimeBegin = dstr.substring(11, 19);
+    x.id = x.Id;
+    return x;
+}
+
+async function query_all_machine(mreq) {
     let mdr = (await query_mdvt(mreq)).filter(x => x.CYCLE !== 'FAIL');
+    let slpr = (await soluscope.query(mreq)).filter(x => !x.ErrorCode && (x.CycleName == 1 || x.CycleName == 6)).map(slp2mdvt);
+    return mdr.concat(slpr);
+}
+
+async function query_all_next(reftime, sn) {
+    let mdr0 = await query_mdvt_next(reftime, sn);
+    let mdr = mdr0.map(x => {
+        x.StartDate = new Date(x.CycleCompletionDate + ' ' + x.TimeBegin);
+        return x;
+    });
+    let slpr0 = await soluscope.query_next(reftime, sn);
+    let slpr = slpr0.map(slp2mdvt);
+    let r = mdr.concat(slpr);
+    r.sort((a, b) => a.StartDate - b.StartDate);
+    return r;
+}
+
+async function buildData(mreq) {
+//    let mdr = (await query_mdvt(mreq)).filter(x => x.CYCLE !== 'FAIL');
+    let mdr = await query_all_machine(mreq);
     let r = [];
     for(let x of mdr) {
         if (!!x.SerialNumber) {
@@ -213,7 +246,8 @@ async function buildData(mreq) {
             const tzr = await tianzhu.getclosest(x.SerialNumber, reftime);
             let tz = tzr[0] || {};
             if (tz.MarrorStatus) {
-                let mdr1 = await query_mdvt_next(x.id, x.SerialNumber);
+                let mdr1 = await query_all_next(reftime, x.SerialNumber);
+//                let mdr1 = await query_mdvt_next(x.id, x.SerialNumber);
                 if (mdr1.length > 0) {
                     let y = mdr1[0];
                     const reftime1 = y.CycleCompletionDate + ' ' + y.TimeBegin;

@@ -23,7 +23,7 @@ async function query({endoscope, fromdate, todate}) {
     if (todate.length === 0) todate = '2039-12-31';
     todate += ' 23:59:59';
     const ss =
-        "select Id,MachineSerialNumber,EndoSN,EndoCode,RetrieveDate,StartDate,EndDate,CycleName,CycleStateOK,ErrorCode,EndoType,Cycletime,Alarm " +
+        "select Id,MachineSerialNumber,EndoSN,EndoCode,RetrieveDate,StartDate,EndDate,CycleName,CycleStateOK,ErrorCode,EndoType,Cycletime,Alarm,FlushAlcohol " +
 		"from Tickets where StartDate between @fromdate and @todate";
     const s1 = endoscope ? ' and EndoSN = @edsn' : '';
     const s2 = ' order by StartDate';
@@ -38,4 +38,19 @@ async function query({endoscope, fromdate, todate}) {
     }	
 }
 
+async function query_next(reftime, sn) {
+    const ss = "select Id,MachineSerialNumber,EndoSN,EndoCode,RetrieveDate,StartDate,EndDate,CycleName,CycleStateOK,ErrorCode,EndoType,Cycletime,Alarm,FlushAlcohol " +
+        "from Tickets where StartDate > @reftime and EndoSN = @sn and CycleStateOK = 1 and CycleName = 1";
+	await pool1Connect;
+    try {
+    	const request = new sql.Request(pool1)
+        const result = await request.input("reftime", reftime).input("sn", sn).query(ss);
+    	return result.recordset;
+    } catch (err) {
+        console.error('SQL error', err);
+        throw err;
+    }	
+}
+
 exports.query = query;
+exports.query_next = query_next;

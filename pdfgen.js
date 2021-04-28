@@ -58,12 +58,23 @@ var options = {
 	// ...
 }
 
+function formatTime(time) {
+    const y = time.getFullYear();
+    const m = time.getMonth() + 1;
+    const d = time.getDate();
+    const h = time.getHours();
+    const mm = time.getMinutes();
+    const s = time.getSeconds();
+    const add0 = (m) => { return m < 10 ? '0' + m : m };
+    return y + '-' + add0(m) + '-' + add0(d) + ' ' + add0(h) + ':' + add0(mm) + ':' + add0(s);
+}
+
 function getDetail(mdvt) {
         let r = Object.assign({}, mdvt);
         delete r.fileId;
         delete r.Steps;
-        const s = Object.entries(r).map(c => [fieldNames[c[0]]||c[0], c[1]]);
-        let steps = JSON.parse(mdvt.Steps).map(q => [q.time, q.step, getTrans(q.info)]);
+        const s = Object.entries(r).map(c => [fieldNames[c[0]]||c[0], Object.prototype.toString.call(c[1]) === '[object Date]' ? formatTime(c[1]) : c[1]]);
+        let steps = mdvt.Steps ? JSON.parse(mdvt.Steps).map(q => [q.time, q.step, getTrans(q.info)]) : [[]];
         return [s, steps];
 }
 
