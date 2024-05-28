@@ -6,6 +6,7 @@ const app = express();
 const port = 8865;
 
 const config = require('./config');
+const { useSoluscope } = config;
 app.use(express.static(path.resolve(config.clipath)));
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -109,7 +110,7 @@ app.get('/api/v1/endoscopes', function(req, res) {
     f();
 });
 
-const soluscope = require('./soluscope');
+const soluscope = useSoluscope ? require('./soluscope') : null;
 
 app.get('/api/v1/soluscope/query', function(req, res) {
     const fromdate = req.query['fromdate'] || '';
@@ -152,17 +153,20 @@ app.get('/api/v1/timeline', function(req, res) {
 				data: x,
 				warning: x.CYCLE === 'FAIL'
 			}));
-            let slpr = await soluscope.query(mreq);
-            let slpl = slpr.map(x => ({
-				stage:2, title: '机洗', datetime: new Date(x.StartDate.getTime()+8*3600*1000), contents:[
-					'机洗结束:　' + new Date(x.EndDate.getTime()+8*3600*1000).toISOString().substring(0,19).replace('T', ' ') + (x.ErrorCode ? '　(异常结束)' : ''),
-                    '循环时长:　' + x.Cycletime,
-                    '循环类型:　' + x.CycleName,
-					'设备ID（索洛普）:　' + x.MachineSerialNumber
-				],
-				data: x,
-				warning: !!x.ErrorCode
-            }));
+			let slpl = [];
+            if (useSoluscope) {
+				let slpr = await soluscope.query(mreq);
+				slpl = slpr.map(x => ({
+					stage:2, title: '机洗', datetime: new Date(x.StartDate.getTime()+8*3600*1000), contents:[
+						'机洗结束:　' + new Date(x.EndDate.getTime()+8*3600*1000).toISOString().substring(0,19).replace('T', ' ') + (x.ErrorCode ? '　(异常结束)' : ''),
+						'循环时长:　' + x.Cycletime,
+						'循环类型:　' + x.CycleName,
+						'设备ID（索洛普）:　' + x.MachineSerialNumber
+					],
+					data: x,
+					warning: !!x.ErrorCode
+				}));
+			}
             let tzr = await tianzhu.getall(mreq);
             tzr.forEach(x => {
                 let r1 = x.CleanDetail.split("|");
@@ -173,13 +177,13 @@ app.get('/api/v1/timeline', function(req, res) {
                 });
             });
 			let tl = tzr.flatMap(x => 
-				x.MarrorStatus === true ?
+				((x.MarrorStatus === true) && x.PatientID) ?
 				[
 					{stage:1, title:'手洗', datetime:new Date(x.CleanStart - 1000 * 60), contents:[
                         '测漏:　' + x.CleanDetail['测漏'] + '　　　初洗:　' + x.CleanDetail['初洗开始'],
                         '操作人:　' + x.CardName
 					]},
-					{stage:3, title:'诊疗使用', datetime:x.UseTime, contents:[
+					{stage:3, title:'诊疗使用', datetime:new Date(x.ExamDate + 'T' + x.ExamTime + 'Z'), contents:[
 						'医生: ' + x.ExamDoctor + '　　　　' + '诊疗室: ' + x.ExamRoom,
 						'患者: ' + x.PatientID + '　' + x.PatientName + '　' + x.Sex + '　' + x.Age + '岁'
 					]},
@@ -219,8 +223,12 @@ function slp2mdvt(x) {
 
 async function query_all_machine(mreq) {
     let mdr = (await query_mdvt(mreq)).filter(x => x.CYCLE !== 'FAIL');
-    let slpr = (await soluscope.query(mreq)).filter(x => !x.ErrorCode && (x.CycleName == 1 || x.CycleName == 6)).map(slp2mdvt);
-    return mdr.concat(slpr);
+	if (useSoluscope) {
+		let slpr = (await soluscope.query(mreq)).filter(x => !x.ErrorCode && (x.CycleName == 1 || x.CycleName == 6)).map(slp2mdvt);
+		return mdr.concat(slpr);
+	} else {
+		return mdr;
+	}
 }
 
 async function query_all_next(reftime, sn) {
@@ -229,8 +237,11 @@ async function query_all_next(reftime, sn) {
         x.StartDate = new Date(x.CycleCompletionDate + ' ' + x.TimeBegin);
         return x;
     });
-    let slpr0 = await soluscope.query_next(reftime, sn);
-    let slpr = slpr0.map(slp2mdvt);
+	let slpr = [];
+	if (useSoluscope) {
+		let slpr0 = await soluscope.query_next(reftime, sn);
+		slpr = slpr0.map(slp2mdvt);
+	}
     let r = mdr.concat(slpr);
     r.sort((a, b) => a.StartDate - b.StartDate);
     return r;

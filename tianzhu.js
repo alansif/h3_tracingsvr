@@ -22,7 +22,7 @@ async function getall({endoscope, fromdate, todate}) {
     if (todate.length === 0) todate = '2039-12-31';
     todate += ' 23:59:59';
     const ss =
-        "select CleanStart,CleanStop,CleanTime,CardName,UseTime,ExamDoctor,ExamRoom,PatientID,PatientName,Sex,Age," +
+        "select CleanStart,CleanStop,CleanTime,CardName,UseTime,ExamDate,ExamTime,ExamDoctor,ExamRoom,PatientID,PatientName,Sex,Age," +
         "CleanDetail,MarrorCleanTime,MarrorCleanStopTime,MarrorCleanPerson,MarrorStatus from Clean_Record " +
 		"where MarrorID=@edsn and CleanStart between @fromdate and @todate order by CleanStart";
 	await pool1Connect;
